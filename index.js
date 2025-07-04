@@ -6,6 +6,14 @@ const {
 } = require('@whiskeysockets/baileys')
 const qrcode = require('qrcode-terminal')
 const schedule = require('node-schedule')
+const express = require('express') // ✅ Tambahan
+const app = express()              // ✅ Tambahan
+
+// ✅ Start express server supaya Railway gak tidur
+app.get('/', (req, res) => res.send('✅ WA Bot aktif di Railway!'))
+app.listen(process.env.PORT || 3000, () =>
+  console.log(`🌐 Express server aktif di port ${process.env.PORT || 3000}`)
+)
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth')
@@ -53,47 +61,49 @@ async function startBot() {
 
       const GROUP_ID = '120363400461504472@g.us'
 
-      // Reminder pagi Senin–Jumat pukul 07:00
+      // ⏰ Reminder Senin–Jumat
       schedule.scheduleJob('0 7 * * 1-5', async () => {
-        try {
-          await sock.sendMessage(GROUP_ID, { text: '☀️ Selamat pagi! Jangan lupa absen ya.' })
-          console.log('✅ Reminder pagi terkirim!')
-        } catch (e) {
-          console.error('❌ Gagal kirim pesan pagi:', e)
-        }
+        await sendReminder(sock, GROUP_ID, '☀️ Selamat pagi! Jangan lupa absen ya.')
       })
 
-      // Reminder sore Senin–Jumat pukul 17:00
       schedule.scheduleJob('0 17 * * 1-5', async () => {
-        try {
-          await sock.sendMessage(GROUP_ID, { text: '🕔 Waktunya pulang! Jangan lupa absen sore!' })
-          console.log('✅ Reminder sore terkirim!')
-        } catch (e) {
-          console.error('❌ Gagal kirim pesan sore:', e)
-        }
+        await sendReminder(sock, GROUP_ID, '🕔 Waktunya pulang! Jangan lupa absen sore!')
       })
 
-      // Reminder pagi Sabtu–Minggu pukul 08:00 (testing)
+      // ⏰ Reminder Weekend
       schedule.scheduleJob('0 8 * * 6,0', async () => {
-        try {
-          await sock.sendMessage(GROUP_ID, { text: '📆 [TESTING WEEKEND] Selamat pagi akhir pekan!' })
-          console.log('✅ Reminder pagi weekend terkirim!')
-        } catch (e) {
-          console.error('❌ Gagal kirim pesan pagi weekend:', e)
-        }
+        await sendReminder(sock, GROUP_ID, '📆 [TESTING WEEKEND] Selamat pagi akhir pekan!')
       })
 
-      // Reminder sore Sabtu–Minggu pukul 16:00 (testing)
       schedule.scheduleJob('0 16 * * 6,0', async () => {
-        try {
-          await sock.sendMessage(GROUP_ID, { text: '🌇 [TESTING WEEKEND] Sore akhir pekan, waktunya istirahat!' })
-          console.log('✅ Reminder sore weekend terkirim!')
-        } catch (e) {
-          console.error('❌ Gagal kirim pesan sore weekend:', e)
-        }
+        await sendReminder(sock, GROUP_ID, '🌇 [TESTING WEEKEND] Sore akhir pekan, waktunya istirahat!')
       })
     }
   })
+
+  // ✅ Auto-reply 'ping' → 'pong!'
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    const msg = messages[0]
+    if (!msg.message || msg.key.fromMe) return
+
+    const text = msg.message.conversation || msg.message.extendedTextMessage?.text
+    const sender = msg.key.remoteJid
+
+    if (text?.toLowerCase() === 'ping') {
+      console.log('📩 Ping diterima, mengirim pong!')
+      await sock.sendMessage(sender, { text: 'pong! ✅' })
+    }
+  })
+}
+
+// 🔁 Helper: kirim pesan dengan error handling
+async function sendReminder(sock, jid, text) {
+  try {
+    await sock.sendMessage(jid, { text })
+    console.log(`✅ Reminder terkirim ke ${jid}: ${text}`)
+  } catch (e) {
+    console.error('❌ Gagal kirim reminder:', e)
+  }
 }
 
 startBot()
